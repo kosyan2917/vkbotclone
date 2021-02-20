@@ -31,6 +31,7 @@ class VkBot:
                          'ПРЕКРАТИТЬ': self.unreg, 'ВОССТАНОВИТЬ ПАРОЛЬ':self.forgot_pw1, 'ОБЩАТЬСЯ С:': self.dialog,
                          'РЕПОРТ':self.report, 'КРИНЖ':self.turn_mode, 'ХАЙП':self.turn_mode, 'ВЫЙТИ':self.unreg,
                          'МАГАЗИН': self.shop}
+        self.shop_commands = {'СЛЕДУЮЩАЯ СТРАНИЦА':self.n_page, 'ПРЕДЫДУЩАЯ СТРАНИЦА': self.p_page, 'СПРАВКА':self.shop_help}
         self.keyboard = VkKeyboard(one_time=False)
         self.regkb = VkKeyboard(one_time=False)
         self.adminkb = VkKeyboard(one_time=False)
@@ -89,13 +90,19 @@ class VkBot:
                           'и сообщайте об этом в баг репорте, мы постараемся вам помочь.'.format(balance)
                 self.write_msg(user, message)
                 self.shop_list[user] = [balance, 1, self.new_kb(balance,1), 0]
+                try:
+                    message = 'Текущая страница: {0} из {1}'.format(self.shop_list[user][1],
+                                                                    math.ceil(len(self.name_list) / 6))
+                    self.write_msg(user, message, self.shop_list[user][2])
+                except KeyError as err:
+                    print(err) 
             except TypeError as err:
                 print(err)
                 message = 'Вас не нашли в базе данных! Вполне вероятно, что вы просто не зарегистрированы. Если это ' \
                           'не так - пишите баг репорт, мы постараемся вам помочь'
                 self.write_msg(user, message)
         elif self.shop_list[user][3]:
-            self.buy(msg, user)
+            self.buy(msg, user, self.shop_list[user][2])
         else:
             try:
                 message = 'Текущая страница: {0} из {1}'.format(self.shop_list[user][1], math.ceil(len(self.name_list)/6))
@@ -197,12 +204,13 @@ class VkBot:
         self.server = smtplib.SMTP(self.host)
         self.server.login('noreply@monkos.ru', 'KEs71b!I')
         FROM = 'noreply@monkos.ru'
-        subject = 'Подтверждение email адреса'
         if mode == 0:
+            subject = 'Подтверждение email адреса'
             text = 'Здравствуйте, вы решили зарегистрироваться на проекте monkos. Чтобы подтвердить свой email, введите этот' \
-               ' код в сообщения боту:\n\n {0} \n\nЕсли вы нигде не регистрировались, просто проигнорирйте это сообщение\n' \
-               'Это автоматическое сообщение. На него не нужно отвечать'.format(code)
+                   ' код в сообщения боту:\n\n {0} \n\nЕсли вы нигде не регистрировались, просто проигнорирйте это сообщение\n' \
+                   'Это автоматическое сообщение. На него не нужно отвечать'.format(code)
         elif mode == 1:
+            subject = 'Восстановление пароля'
             text = 'Здравствуйте, пользователь, вы сделали запрос на восстановление пароля на проекте monkos. ' \
                    'Чтобы продолжить процедуру, введите этот код в сообщения боту:\n\n {0} \n\nЕсли вы ничего не делали,' \
                    ' просто проигнорирйте это сообщение\n' \
@@ -221,7 +229,7 @@ class VkBot:
             self.write_msg(user, message, self.reports)
         elif mode == 1:
             self.report_user[user].append(msg)
-            message = 'Опишите пробле   му как можно подробнее'
+            message = 'Опишите проблему как можно подробнее'
             self.write_msg(user, message, self.regkb)
             self.report_user[user][0] = 2
         elif mode == 2:
@@ -522,22 +530,9 @@ for event in longpoll.listen():
                         bot.report(msg,user, bot.report_user[user][0])
                         if msg.upper()=="ВЫЙТИ" or msg.upper() == "ПРЕКРАТИТЬ":
                             bot.unreg(msg, user)
-                        elif not bot.shop_list[user][3]:
-                            if msg.upper()=="ПРЕДЫДУЩАЯ СТРАНИЦА":
-                                bot.p_page(msg, user)
-                            elif msg.upper()=="СЛЕДУЮЩАЯ СТРАНИЦА":
-                                bot.n_page(msg, user)
-                            elif msg.lower()[:6]=="купить":
-                                bot.buy(msg.lower(), user)
-                            elif msg.upper()=="СПРАВКА":
-                                bot.shop_help
-                            else:
-                                bot.write_msg(user, 'Чтобы узнать как пользоваться магазином, нажмите "Справка", чтобы выйти - нажмите "выйти"')
-                                bot.shop(msg, user)
-                        else:
-                            bot.shop(msg, user)
                     elif user in bot.shop_list:
-                        pass
+                        if msg.upper() in bot.shop_commands:
+                            bot.shop_commands[msg.upper()](user, msg)
                     else:
                         if bot.flag and user in bot.admins:
                             bot.dialog(msg, user)
