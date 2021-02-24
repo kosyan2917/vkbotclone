@@ -12,6 +12,7 @@ from email.mime.text import MIMEText
 from email.header import Header
 import json
 import math
+import logging as lg
 
 
 class NullNamespace:
@@ -77,8 +78,9 @@ class VkBot:
         self.price_list = {}
         self.make_price_list()
         self.name_list = self.make_list()
+        lg.basicConfig(filename='shop.log', level=lg.INFO)
 
-    def shop(self, msg, user):
+    def shop(self, msg, user, item=None):
         if user not in self.shop_list:
             try:
                 self.cursor.execute("SELECT Money FROM `flexiblelogin_users` WHERE VkID = '{0}'".format(user))
@@ -89,10 +91,11 @@ class VkBot:
                           'Если по каким то причинам вы не видите кнопок, то пишите "Прекратить" ' \
                           'и сообщайте об этом в баг репорте, мы постараемся вам помочь.'.format(balance)
                 self.write_msg(user, message)
-                self.shop_list[user] = [balance, 1, self.new_kb(balance,1), 0]
+                self.shop_list[user] = [balance, 1, self.new_kb(balance, 1), 0, None]
                 try:
-                    message = 'Текущая страница: {0} из {1}'.format(self.shop_list[user][1],
-                                                                    math.ceil(len(self.name_list) / 6))
+                    message = 'Текущая страница: {0} из {1}. Ваш баланс: {2}'.format(self.shop_list[user][1],
+                                                                                     math.ceil(len(self.name_list) / 6),
+                                                                                     self.shop_list[user][0])
                     self.write_msg(user, message, self.shop_list[user][2])
                 except KeyError as err:
                     print(err) 
@@ -101,8 +104,24 @@ class VkBot:
                 message = 'Вас не нашли в базе данных! Вполне вероятно, что вы просто не зарегистрированы. Если это ' \
                           'не так - пишите баг репорт, мы постараемся вам помочь'
                 self.write_msg(user, message)
-        elif self.shop_list[user][3]:
-            self.buy(msg, user, self.shop_list[user][2])
+        elif self.shop_list[user][3] == 1:
+            self.buy(msg, user)
+        elif self.shop_list[user][3] == 2:
+            if msg.isdigit():
+                if self.shop_list[user][0] >= int(msg)*self.price_list[item]:
+                    self.shop_list[user][3] = 0
+                    self.add_blocks(msg, user, item, int(msg))
+                    message = "Вы успешно приобрели предмет"
+                    lg.info("Игроком {0} было куплено {1} {2}".format(user, int(msg), item))
+                    self.write_msg(user, message)
+                    self.cursor.execute("UPDATE `flexiblelogin_users` SET Money='{0}' WHERE VkID = '{1}'"
+                                        .format(self.shop_list[user][0]-int(msg)*self.price_list[item], user))
+                    self.unreg(msg, user)
+                else:
+                    self.write_msg(user, 'Предмет не куплен, у вас недостаточно средств!')
+                    self.unreg(msg, user)
+            else:
+                self.write_msg(user, 'Это не похоже на число. Попробуйте еще раз', self.regkb)
         else:
             try:
                 message = 'Текущая страница: {0} из {1}'.format(self.shop_list[user][1], math.ceil(len(self.name_list)/6))
@@ -110,16 +129,16 @@ class VkBot:
             except KeyError as err:
                 print(err)
 
-    def add_blocks(self, msg, user, name='алмаз', amount=1):
+    def add_blocks(self, msg, user, name, amount):
         self.cursor.execute("SELECT Blocks FROM `flexiblelogin_users` WHERE VkID = '{0}'".format(user))
         try:
             blocks = json.loads(self.cursor.fetchone()[0])
         except TypeError:
             blocks = {}
-        if name not in blocks:
-            blocks[name] = amount
+        if name.lower() not in blocks:
+            blocks[name.lower()] = amount
         else:
-            blocks[name] += amount
+            blocks[name.lower()] += amount
         try:
             json_string = json.dumps(blocks, ensure_ascii=False)
             self.cursor.execute("UPDATE `flexiblelogin_users` SET Blocks = '{0}' WHERE VkID = '{1}'".format(json_string,user))
@@ -144,9 +163,9 @@ class VkBot:
                               (lambda balance: VkKeyboardColor.POSITIVE
                               if balance > self.price_list[self.name_list[i]] else VkKeyboardColor.NEGATIVE)(balance))
             kb.add_line()
-        kb.add_button('Предыдущая страница', color=VkKeyboardColor.POSITIVE if page!=1 else VkKeyboardColor.SECONDARY)
+        kb.add_button('Предыдущая страница', color=VkKeyboardColor.POSITIVE if page!=1 else VkKeyboardColor.DEFAULT)
         kb.add_button('Следующая страница', color=VkKeyboardColor.POSITIVE if page!=math.ceil(len(self.name_list)/6)
-                      else VkKeyboardColor.SECONDARY)
+                      else VkKeyboardColor.DEFAULT)
         kb.add_line()
         kb.add_button('Справка', color=VkKeyboardColor.PRIMARY)
         kb.add_line()
@@ -156,6 +175,7 @@ class VkBot:
     def make_price_list(self):
         f = open('price_list.txt', 'r', encoding='utf-8')
         json_string = f.read()
+        json_string = json_string.lower()
         self.price_list = json.loads(json_string)
 
     def make_list(self):
@@ -263,6 +283,8 @@ class VkBot:
             self.write_msg(user, message)
         elif user in self.report_user:
             self.report_user.pop(user)
+            message = 'Успешно'
+            self.write_msg(user, message)
         elif user in self.shop_list:
             self.shop_list.pop(user)
             message = "Вы вышли из магазина"
@@ -274,7 +296,8 @@ class VkBot:
     def help(self, msg, user):
         text = 'Бот умеет следующее: \n Зарегистрироваться - регистрация нового пользователя' \
                ' \n Хелп - выводит список команд \n Восстановить пароль - восстановление пароля' \
-               '\n Репорт - отпавить сообщение об ошибке администраторам. Они свяжутся с вами в ближайшее время, чтобы решить ваш вопрос    '
+               '\n Репорт - отпавить сообщение об ошибке администраторам. Они свяжутся с вами в ближайшее время, чтобы решить ваш вопрос' \
+               '\n Магазин - мазазин внутриигровых предметов и привилегий'
         self.write_msg(user, text)
 
     def write_msg(self, user_id, message, kb=None):
@@ -469,26 +492,30 @@ class VkBot:
         self.shop(msg, user)
 
     def buy(self, msg, user):
-        separator = msg.find(' за ')
-        item = msg[7:separator]
-        item[0] = item[0].upper()
+        separator = msg.find(' за')
+        item = msg[7:separator].lower()
         balance = self.shop_list[user][0]
         if item in self.name_list:
-            if balance > self.price_list[item]:
+            if balance >= self.price_list[item]:
                 message = "Вы собираетесь купить {0} по цене {1} за штуку.\n" \
-                          "Введите желаемое количество. Доступно: {2}".format(item,self.price_list[item], math.floor(balance/self.price_list[item]))
-                self.write_msg(user, message)
+                          "Введите желаемое количество. Доступно: {2}".format(item, self.price_list[item], math.floor(balance/self.price_list[item]))
+                self.shop_list[user][3] = 2
+                self.shop_list[user][4] = item
+                self.write_msg(user, message, self.regkb)
             else:
                 self.shop_list[user][3] = 0
                 message = "У вас не хватает средств на покупку хотя бы одного этого предмета"
-                self.write_msg(user, message)
+                self.write_msg(user, message, self.shop_list[user][2])
         else:
             self.shop_list[user][3] = 0
             message = "Вы собрались купить что-то странное. Мы такого не продаем"
-            self.write_msg(user, message)
+            self.write_msg(user, message, self.shop_list[user][2])
 
-    def shop_help(self):
-        pass
+    def shop_help(self, msg, user):
+        message = 'Используйте кнопки переключения страниц для навигации между страницами' \
+                  'Нажмите на выйти, чтобы выйти из магазина.' \
+                  'Вы можете купить предмет без кнопок написав сообщение в виде: \n Купить <имя_предмета> за'
+        self.write_msg(user, message)
 
     @staticmethod
     def gen_code():
@@ -532,7 +559,14 @@ for event in longpoll.listen():
                             bot.unreg(msg, user)
                     elif user in bot.shop_list:
                         if msg.upper() in bot.shop_commands:
-                            bot.shop_commands[msg.upper()](user, msg)
+                            bot.shop_commands[msg.upper()](msg, user)
+                        elif msg.upper()[:6] == "КУПИТЬ":
+                            bot.shop_list[user][3] = 1
+                            bot.shop(msg, user)
+                        elif bot.shop_list[user][3]==2:
+                            bot.shop(msg, user, bot.shop_list[user][4])
+                        else:
+                            bot.write_msg(user, 'Это что то странное. Состояние: {0}'.format(bot.shop_list[user]), bot.shop_list[user][2])
                     else:
                         if bot.flag and user in bot.admins:
                             bot.dialog(msg, user)
