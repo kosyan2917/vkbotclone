@@ -14,13 +14,18 @@ import json
 import math
 import logging as lg
 import threading as thr
-
+from VkBot.donate import donate
+import time
 
 class NullNamespace:
     bytes = b''
 
 
 class VkBot:
+    def __new__(cls):
+        if not hasattr(cls, 'instance'):
+            cls.instance = super(VkBot, cls).__new__(cls)
+        return cls.instance
 
     def __init__(self):
         self.host = '***REMOVED***'
@@ -164,9 +169,9 @@ class VkBot:
                               (lambda balance: VkKeyboardColor.POSITIVE
                               if balance > self.price_list[self.name_list[i]] else VkKeyboardColor.NEGATIVE)(balance))
             kb.add_line()
-        kb.add_button('Предыдущая страница', color=VkKeyboardColor.POSITIVE if page!=1 else VkKeyboardColor.DEFAULT)
+        kb.add_button('Предыдущая страница', color=VkKeyboardColor.POSITIVE if page!=1 else VkKeyboardColor.PRIMARY)
         kb.add_button('Следующая страница', color=VkKeyboardColor.POSITIVE if page!=math.ceil(len(self.name_list)/6)
-                      else VkKeyboardColor.DEFAULT)
+                      else VkKeyboardColor.PRIMARY)
         kb.add_line()
         kb.add_button('Справка', color=VkKeyboardColor.PRIMARY)
         kb.add_line()
@@ -368,7 +373,7 @@ class VkBot:
                     self.unreg(msg, user)
                     return 0
         else:
-            message = 'Прежде чем приступить к регистрации, необходимо ознакомиться с правилами проекта и подтвердить свое согласие с ними.\n Для этого напишите "согласен" или нажмите на соответсвующую кнопку \n {0}'.format('Здесь будет ссылка на правила')
+            message = 'Прежде чем приступить к регистрации, необходимо ознакомиться с правилами проекта и подтвердить свое согласие с ними.\n Для этого напишите "согласен" или нажмите на соответсвующую кнопку \n {0}'.format('https://vk.com/topic-196476866_47077902')
             self.write_msg(user, message, self.agree_kb)
 
     def register1(self, msg, user):
@@ -448,6 +453,7 @@ class VkBot:
                     self.write_msg(user, message, self.regkb)
                     return 0
             else:
+                self.write_msg(user, 'Вы успешно зарегистрировались!\n Чтобы скачать лаунчер, перейдите по ссылке \n http://monkos.ru/files/launcher/Installer.exe')
                 self.reg[user].append(self.hash_pw(msg))
                 self.add_to_db(user)
                 self.unreg(msg,user)
@@ -518,6 +524,16 @@ class VkBot:
                   'Вы можете купить предмет без кнопок написав сообщение в виде: \n Купить <имя_предмета> за'
         self.write_msg(user, message)
 
+    def give_money(self, user, money):
+        self.cursor.execute("SELECT Money FROM `flexiblelogin_users` WHERE VkID = '{0}'".format(user))
+        balance = self.cursor.fetchone()[0]
+        money_req = "UPDATE `flexiblelogin_users` SET `Money` = '{0}'" \
+                    " WHERE `flexiblelogin_users`.`VkID` = {1}".format(balance+money, user)
+        self.cursor.execute(money_req)
+        self.write_msg(user, 'Спасибо за вашу поддержку!\n На ваш баланс начислено {0} фишек \n Ваш текуший баланс: {1}'.format(money,balance+money))
+
+    def
+
     @staticmethod
     def gen_code():
         return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
@@ -530,57 +546,81 @@ class VkBot:
         hashed = hashed.replace('b', 'y', 1)
         return hashed
 
+def longpoll_thread():
+    while True:
+        try:
+            bot = VkBot()
+            longpoll = VkBotLongPoll(bot.vk, '196476866')
+            print("Бот приступил к работе")
+            for event in longpoll.listen():
+                if event.type == VkBotEventType.MESSAGE_NEW:
+                    if event.from_user:
+                        msg = event.obj['message']['text']
+                        user = event.obj['message']['from_id']
+                        if user not in bot.dialogs:
+                            if msg.upper() in bot.commands:
+                                if (user not in bot.reg) and (user not in bot.restore) and (user not in bot.report_user) and (user not in bot.shop_list):
+                                    bot.commands[msg.upper()](msg,user)
+                                else:
+                                    if msg.upper() == 'ПРЕКРАТИТЬ' or msg.upper() == 'ВЫЙТИ':
+                                        bot.unreg(msg, user)
+                                    else:
+                                        message = 'В данный момент команды отключены'
+                                        bot.write_msg(user, message, bot.regkb)
+                            else:
+                                if user in bot.reg:
+                                    bot.reg[user][0](msg, user)
+                                elif user in bot.restore:
+                                    bot.restore[user][0](msg, user)
+                                elif user in bot.report_user:
+                                    bot.report(msg,user, bot.report_user[user][0])
+                                    if msg.upper()=="ВЫЙТИ" or msg.upper() == "ПРЕКРАТИТЬ":
+                                        bot.unreg(msg, user)
+                                elif user in bot.shop_list:
+                                    if msg.upper() in bot.shop_commands:
+                                        bot.shop_commands[msg.upper()](msg, user)
+                                    elif msg.upper()[:6] == "КУПИТЬ":
+                                        bot.shop_list[user][3] = 1
+                                        bot.shop(msg, user)
+                                    elif bot.shop_list[user][3]==2:
+                                        bot.shop(msg, user, bot.shop_list[user][4])
+                                    else:
+                                        bot.write_msg(user, 'Это что то странное. Состояние: {0}'.format(bot.shop_list[user]), bot.shop_list[user][2])
+                                else:
+                                    if bot.flag and user in bot.admins:
+                                        bot.dialog(msg, user)
+                                    else:
+                                        message = 'Я такое не умею. Чтобы узнать список команд, напишите "хелп"'
+                                        bot.write_msg(user, message)
+                        else:
+                            if msg.upper() == 'ПРЕКРАТИТЬ':
+                                bot.unreg(msg,user)
+                    elif event.from_chat:
+                        msg = event.obj['message']['text']
+                        if msg.upper()[31:42] == 'ОБЩАТЬСЯ С ':
+                            bot.dialog_chat(msg)
+                        else:
+                            print(msg.upper()[:30])
+                            print(msg.upper()[31:41])
+        except Exception as err:
+            lg.error('Ошибка {0} в потоке бота'.format(err))
 
-bot = VkBot()
-longpoll = VkBotLongPoll(bot.vk, '196476866')
-print("Бот приступил к работе")
-for event in longpoll.listen():
-    if event.type == VkBotEventType.MESSAGE_NEW:
-        if event.from_user:
-            msg = event.obj['message']['text']
-            user = event.obj['message']['from_id']
-            if user not in bot.dialogs:
-                if msg.upper() in bot.commands:
-                    if (user not in bot.reg) and (user not in bot.restore) and (user not in bot.report_user) and (user not in bot.shop_list):
-                        thr.Thread(target=bot.commands[msg.upper()], args=(msg,user,))
-                    else:
-                        if msg.upper() == 'ПРЕКРАТИТЬ' or msg.upper() == 'ВЫЙТИ':
-                            thr.Thread(target=bot.unreg, args=(msg, user,))
-                        else:
-                            message = 'В данный момент команды отключены'
-                            thr.Thread(target=bot.write_msg, args=(user, message, bot.regkb,))
-                else:
-                    if user in bot.reg:
-                        thr.Thread(target=bot.reg[user][0], args=(msg, user,))
-                    elif user in bot.restore:
-                        thr.Thread(target=bot.restore[user][0], args=(msg, user,))
-                    elif user in bot.report_user:
-                        thr.Thread(target=bot.report, args=(msg, user, bot.report_user[user][0],))
-                        if msg.upper()=="ВЫЙТИ" or msg.upper() == "ПРЕКРАТИТЬ":
-                            thr.Thread(target=bot.unreg, args=(msg, user,))
-                    elif user in bot.shop_list:
-                        if msg.upper() in bot.shop_commands:
-                            thr.Thread(target=bot.shop_commands[msg.upper()], args=(msg, user,))
-                        elif msg.upper()[:6] == "КУПИТЬ":
-                            bot.shop_list[user][3] = 1
-                            thr.Thread(target=bot.shop, args=(msg, user,))
-                        elif bot.shop_list[user][3] == 2:
-                            thr.Thread(target=bot.shop, args=(msg, user, bot.shop_list[user][4],))
-                        else:
-                            thr.Thread(target=bot.write_msg, args=(user, 'Это что то странное. Состояние: {0}'.format(bot.shop_list[user]), bot.shop_list[user][2]))
-                    else:
-                        if bot.flag and user in bot.admins:
-                            thr.Thread(target=bot.dialog, args=(msg, user,))
-                        else:
-                            message = 'Я такое не умею. Чтобы узнать список команд, напишите "хелп"'
-                            thr.Thread(target=bot.write_msg,args=(user, message,))
-            else:
-                if msg.upper() == 'ПРЕКРАТИТЬ':
-                    thr.Thread(target=bot.unreg, args=(msg, user,))
-        elif event.from_chat:
-            msg = event.obj['message']['text']
-            if msg.upper()[31:42] == 'ОБЩАТЬСЯ С ':
-                thr.Thread(target=bot.dialog_chat, args=(msg,))
-            else:
-                print(msg.upper()[:30])
-                print(msg.upper()[31:41])
+def donate_thread():
+    don = donate()
+    bot = VkBot()
+    while True:
+        try:
+            check_time = time.time()
+            donaters = don.get_donates()
+            for donater in donaters:
+                if check_time-donater['ts']<=5:
+                    bot.give_money(donater['uid'],donater['sum']*100)
+                    lg.info('Пользовтелю {0} выдано {1} валюты'.format(donater['ts'], donater['sum']*100))
+            time.sleep(5)
+        except Exception as err:
+            lg.error("Ошибка {0} в потоке донатов".format(err))
+
+thread1 = thr.Thread(target=longpoll_thread)
+thread2 = thr.Thread(target=donate_thread)
+thread1.start()
+thread2.start()

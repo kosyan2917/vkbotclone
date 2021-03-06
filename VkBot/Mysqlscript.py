@@ -1,7 +1,5 @@
-import pymysql as pms
-
-db = pms.connect(host = '***REMOVED***', user = '***REMOVED***',passwd = '***REMOVED***', db = '***REMOVED***', autocommit = True)
-cur = db.cursor()
-sql = "SELECT 'Password' FROM `flexiblelogin_users` WHERE 'Username'='NIGGER'"
-cur.execute(sql)
-print(cur.fetchall())
+import time
+print(time.ctime(1614989277))
+print(time.time())
+time.sleep(2)
+print(time.time())

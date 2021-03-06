@@ -13,6 +13,7 @@ from email.header import Header
 import json
 import math
 import logging as lg
+from VkBot.donate import donate as dnt
 
 
 class NullNamespace:
@@ -367,7 +368,7 @@ class VkBot:
                     self.unreg(msg, user)
                     return 0
         else:
-            message = 'Прежде чем приступить к регистрации, необходимо ознакомиться с правилами проекта и подтвердить свое согласие с ними.\n Для этого напишите "согласен" или нажмите на соответсвующую кнопку \n {0}'.format('Здесь будет ссылка на правила')
+            message = 'Прежде чем приступить к регистрации, необходимо ознакомиться с правилами проекта и подтвердить свое согласие с ними.\n Для этого напишите "согласен" или нажмите на соответсвующую кнопку \n {0}'.format('https://vk.com/topic-196476866_47077902')
             self.write_msg(user, message, self.agree_kb)
 
     def register1(self, msg, user):
@@ -447,6 +448,7 @@ class VkBot:
                     self.write_msg(user, message, self.regkb)
                     return 0
             else:
+                self.write_msg('Вы успешно зарегистрировались!\n Чтобы скачать лаунчер, перейдите по ссылке \n http://monkos.ru/files/launcher/Installer.exe')
                 self.reg[user].append(self.hash_pw(msg))
                 self.add_to_db(user)
                 self.unreg(msg,user)
@@ -533,53 +535,55 @@ class VkBot:
 bot = VkBot()
 longpoll = VkBotLongPoll(bot.vk, '196476866')
 print("Бот приступил к работе")
-for event in longpoll.listen():
-    if event.type == VkBotEventType.MESSAGE_NEW:
-        if event.from_user:
-            msg = event.obj['message']['text']
-            user = event.obj['message']['from_id']
-            if user not in bot.dialogs:
-                if msg.upper() in bot.commands:
-                    if (user not in bot.reg) and (user not in bot.restore) and (user not in bot.report_user) and (user not in bot.shop_list):
-                        bot.commands[msg.upper()](msg,user)
-                    else:
-                        if msg.upper() == 'ПРЕКРАТИТЬ' or msg.upper() == 'ВЫЙТИ':
-                            bot.unreg(msg, user)
+for i in range(0,10):
+    print(i)
+    for event in longpoll.listen():
+        if event.type == VkBotEventType.MESSAGE_NEW:
+            if event.from_user:
+                msg = event.obj['message']['text']
+                user = event.obj['message']['from_id']
+                if user not in bot.dialogs:
+                    if msg.upper() in bot.commands:
+                        if (user not in bot.reg) and (user not in bot.restore) and (user not in bot.report_user) and (user not in bot.shop_list):
+                            bot.commands[msg.upper()](msg,user)
                         else:
-                            message = 'В данный момент команды отключены'
-                            bot.write_msg(user, message, bot.regkb)
+                            if msg.upper() == 'ПРЕКРАТИТЬ' or msg.upper() == 'ВЫЙТИ':
+                                bot.unreg(msg, user)
+                            else:
+                                message = 'В данный момент команды отключены'
+                                bot.write_msg(user, message, bot.regkb)
+                    else:
+                        if user in bot.reg:
+                            bot.reg[user][0](msg, user)
+                        elif user in bot.restore:
+                            bot.restore[user][0](msg, user)
+                        elif user in bot.report_user:
+                            bot.report(msg,user, bot.report_user[user][0])
+                            if msg.upper()=="ВЫЙТИ" or msg.upper() == "ПРЕКРАТИТЬ":
+                                bot.unreg(msg, user)
+                        elif user in bot.shop_list:
+                            if msg.upper() in bot.shop_commands:
+                                bot.shop_commands[msg.upper()](msg, user)
+                            elif msg.upper()[:6] == "КУПИТЬ":
+                                bot.shop_list[user][3] = 1
+                                bot.shop(msg, user)
+                            elif bot.shop_list[user][3]==2:
+                                bot.shop(msg, user, bot.shop_list[user][4])
+                            else:
+                                bot.write_msg(user, 'Это что то странное. Состояние: {0}'.format(bot.shop_list[user]), bot.shop_list[user][2])
+                        else:
+                            if bot.flag and user in bot.admins:
+                                bot.dialog(msg, user)
+                            else:
+                                message = 'Я такое не умею. Чтобы узнать список команд, напишите "хелп"'
+                                bot.write_msg(user, message)
                 else:
-                    if user in bot.reg:
-                        bot.reg[user][0](msg, user)
-                    elif user in bot.restore:
-                        bot.restore[user][0](msg, user)
-                    elif user in bot.report_user:
-                        bot.report(msg,user, bot.report_user[user][0])
-                        if msg.upper()=="ВЫЙТИ" or msg.upper() == "ПРЕКРАТИТЬ":
-                            bot.unreg(msg, user)
-                    elif user in bot.shop_list:
-                        if msg.upper() in bot.shop_commands:
-                            bot.shop_commands[msg.upper()](msg, user)
-                        elif msg.upper()[:6] == "КУПИТЬ":
-                            bot.shop_list[user][3] = 1
-                            bot.shop(msg, user)
-                        elif bot.shop_list[user][3]==2:
-                            bot.shop(msg, user, bot.shop_list[user][4])
-                        else:
-                            bot.write_msg(user, 'Это что то странное. Состояние: {0}'.format(bot.shop_list[user]), bot.shop_list[user][2])
-                    else:
-                        if bot.flag and user in bot.admins:
-                            bot.dialog(msg, user)
-                        else:
-                            message = 'Я такое не умею. Чтобы узнать список команд, напишите "хелп"'
-                            bot.write_msg(user, message)
-            else:
-                if msg.upper() == 'ПРЕКРАТИТЬ':
-                    bot.unreg(msg,user)
-        elif event.from_chat:
-            msg = event.obj['message']['text']
-            if msg.upper()[31:42] == 'ОБЩАТЬСЯ С ':
-                bot.dialog_chat(msg)
-            else:
-                print(msg.upper()[:30])
-                print(msg.upper()[31:41])
+                    if msg.upper() == 'ПРЕКРАТИТЬ':
+                        bot.unreg(msg,user)
+            elif event.from_chat:
+                msg = event.obj['message']['text']
+                if msg.upper()[31:42] == 'ОБЩАТЬСЯ С ':
+                    bot.dialog_chat(msg)
+                else:
+                    print(msg.upper()[:30])
+                    print(msg.upper()[31:41])
