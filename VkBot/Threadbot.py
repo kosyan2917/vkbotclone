@@ -14,8 +14,21 @@ import json
 import math
 import logging as lg
 import threading as thr
-from VkBot.donate import donate
 import time
+import requests as rq
+
+class donate():
+
+    def __init__(self):
+        pass
+
+    def get_donates(self):
+        request = 'https://api.vkdonate.ru?action=donates&count={0}&key=e21f784712a344c78dcb'.format(10)
+        response = rq.get(request).text
+        donaters = json.loads(response)['donates']
+        print(donaters)
+        return donaters
+
 
 class NullNamespace:
     bytes = b''
@@ -532,7 +545,6 @@ class VkBot:
         self.cursor.execute(money_req)
         self.write_msg(user, 'Спасибо за вашу поддержку!\n На ваш баланс начислено {0} фишек \n Ваш текуший баланс: {1}'.format(money,balance+money))
 
-    def
 
     @staticmethod
     def gen_code():
