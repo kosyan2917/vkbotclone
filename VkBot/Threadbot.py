@@ -76,7 +76,7 @@ class VkBot:
         self.commands = {'ЗАРЕГИСТРИРОВАТЬСЯ': self.register0, 'НАЧАТЬ': self.help, 'ХЕЛП':self.help,'START':self.help,
                          'ПРЕКРАТИТЬ': self.unreg, 'ВОССТАНОВИТЬ ПАРОЛЬ':self.forgot_pw1, 'ОБЩАТЬСЯ С:': self.dialog,
                          'РЕПОРТ':self.report, 'КРИНЖ':self.turn_mode, 'ХАЙП':self.turn_mode, 'ВЫЙТИ':self.unreg,
-                         'МАГАЗИН': self.shop}
+                         'МАГАЗИН': self.shop, 'ГОЛОСОВАТЬ':self.vote}
         self.shop_commands = {'СЛЕДУЮЩАЯ СТРАНИЦА':self.n_page, 'ПРЕДЫДУЩАЯ СТРАНИЦА': self.p_page, 'СПРАВКА':self.shop_help}
         self.keyboard = VkKeyboard(one_time=False)
         self.regkb = VkKeyboard(one_time=False)
@@ -100,6 +100,8 @@ class VkBot:
         self.keyboard.add_button('Магазин', color=VkKeyboardColor.POSITIVE)
         self.keyboard.add_line()
         self.keyboard.add_button('Репорт', color=VkKeyboardColor.NEGATIVE)
+        self.keyboard.add_line()
+        self.keyboard.add_button('Голосовать', color=VkKeyboardColor.PRIMARY)
         self.adminkb.add_button('Зарегистрироваться', color=VkKeyboardColor.POSITIVE)
         self.adminkb.add_button('Хелп', color=VkKeyboardColor.POSITIVE)
         self.adminkb.add_line()
@@ -124,6 +126,13 @@ class VkBot:
         self.make_price_list()
         self.name_list = self.make_list()
         lg.basicConfig(filename='shop.log', level=lg.INFO)
+
+    def vote(self, msg, user):
+        message = 'Вы можете проголосовать за наш проект в данных топах \n' \
+                  'https://topcraft.ru/servers/11030/ \n' \
+                  'https://hotmc.ru/vote-204918 \n' \
+                  'За каждый голос вы получите 50 монет на ваш баланс. Спасибо!'
+        self.write_msg(user, message)
 
     def shop(self, msg, user, item=None):
         if user not in self.shop_list:
