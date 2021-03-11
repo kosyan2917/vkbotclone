@@ -17,7 +17,33 @@ import threading as thr
 import time
 import requests as rq
 
-class donate():
+class Vote():
+
+    def __init__(self):
+        self.bot = VkBot()
+        self.host = '***REMOVED***'
+        self.db = pms.connect(host=self.host, user='***REMOVED***', passwd='***REMOVED***', db='***REMOVED***',
+                              autocommit=True)
+        self.cursor = self.db.cursor()
+        self.cursor.execute("SELECT vkid FROM vote_db JOIN flexiblelogin_users ON "
+                            "vote_db.username = flexiblelogin_users.Username")
+        self.votes = self.cursor.fetchall()
+
+    def get_votes(self):
+        result = []
+        self.cursor.execute("SELECT vkid FROM vote_db JOIN flexiblelogin_users ON "
+                                        "vote_db.username = flexiblelogin_users.Username")
+        votes = self.cursor.fetchall()
+        print(votes, ' self ', self.votes)
+        if len(votes) > len(self.votes):
+            for i in range(len(self.votes), len(votes)):
+                self.bot.write_msg(votes[i][0], 'Спасибо за ваш голос! Ваш баланс увеличен на 50.')
+        self.votes = votes
+
+
+
+
+class Donate():
 
     def __init__(self):
         pass
@@ -618,7 +644,7 @@ def longpoll_thread():
             lg.error('Ошибка {0} в потоке бота'.format(err))
 
 def donate_thread():
-    don = donate()
+    don = Donate()
     bot = VkBot()
     while True:
         try:
@@ -632,7 +658,18 @@ def donate_thread():
         except Exception as err:
             lg.error("Ошибка {0} в потоке донатов".format(err))
 
+def votnig():
+    vote = Vote()
+    while True:
+        try:
+            vote.get_votes()
+        except Exception as err:
+            lg.error('Ошибка {0} в потоке голосов'.format(err))
+        time.sleep(5)
+
 thread1 = thr.Thread(target=longpoll_thread)
 thread2 = thr.Thread(target=donate_thread)
+thread3 = thr.Thread(target=votnig)
 thread1.start()
 thread2.start()
+thread3.start()
