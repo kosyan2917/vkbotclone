@@ -21,8 +21,14 @@ class Vote():
 
     def __init__(self):
         self.bot = VkBot()
-        self.host = '***REMOVED***'
-        self.db = pms.connect(host=self.host, user='***REMOVED***', passwd='***REMOVED***', db='***REMOVED***',
+        with open('data.txt', 'r') as f:
+            token = f.readline()
+            host = f.readline()
+            user = f.readline()
+            pw = f.readline()
+            db = f.readline()
+        self.host = host
+        self.db = pms.connect(host=self.host, user=user, passwd=pw, db=db,
                               autocommit=True)
         self.cursor = self.db.cursor()
         self.cursor.execute("SELECT vkid FROM vote_db JOIN flexiblelogin_users ON "
