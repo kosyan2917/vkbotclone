@@ -66,12 +66,13 @@ class VkBot:
 
     def __init__(self):
         with open('data.txt', 'r') as f:
+            token = f.readline()
             host = f.readline()
             user = f.readline()
             pw = f.readline()
             db = f.readline()
         self.host = host
-        self.token = '***REMOVED***'
+        self.token = token
         self.db = pms.connect(host=self.host, user=user, passwd=pw, db=db,
                               autocommit=True)
         self.vk = api.VkApi(token=self.token)
@@ -651,9 +652,7 @@ def longpoll_thread():
                         else:
                             print(msg.upper()[:30])
                             print(msg.upper()[31:41])
-try:
-    5+5
-except smtplib.SMTPRecipientsRefused
+
 def donate_thread():
     don = Donate()
     bot = VkBot()

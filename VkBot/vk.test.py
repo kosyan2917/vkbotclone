@@ -12,11 +12,12 @@ class VkBot:
 
     def __init__(self):
         with open('data.txt', 'r') as f:
+            token = f.readline()
             host = f.readline()
             user = f.readline()
             pw = f.readline()
             db = f.readline()
-        self.vk = api.VkApi(token='***REMOVED***')
+        self.vk = api.VkApi(token=token)
         self.kb = VkKeyboard(inline=True)
         self.host = host
         self.shop_list = {}

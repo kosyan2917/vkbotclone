@@ -34,9 +34,15 @@ class donate():
 class VkBot:
 
     def __init__(self):
-        self.host = '***REMOVED***'
-        self.token = '***REMOVED***'
-        self.db = pms.connect(host=self.host, user='***REMOVED***', passwd='***REMOVED***', db='***REMOVED***',
+        with open('data.txt', 'r') as f:
+            token = f.readline()
+            host = f.readline()
+            user = f.readline()
+            pw = f.readline()
+            db = f.readline()
+        self.host = host
+        self.token = token
+        self.db = pms.connect(host=self.host, user=user, passwd=pw, db=db,
                               autocommit=True)
         self.vk = api.VkApi(token=self.token)
         self.chat = 2000000001
