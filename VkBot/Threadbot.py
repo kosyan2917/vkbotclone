@@ -71,6 +71,7 @@ class VkBot:
             user = f.readline()
             pw = f.readline()
             db = f.readline()
+            #commit
         self.host = host
         self.token = token
         self.db = pms.connect(host=self.host, user=user, passwd=pw, db=db,
