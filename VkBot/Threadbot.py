@@ -41,8 +41,6 @@ class Vote():
         self.votes = votes
 
 
-
-
 class Donate():
 
     def __init__(self):
@@ -67,9 +65,14 @@ class VkBot:
         return cls.instance
 
     def __init__(self):
-        self.host = '***REMOVED***'
+        with open('data.txt', 'r') as f:
+            host = f.readline()
+            user = f.readline()
+            pw = f.readline()
+            db = f.readline()
+        self.host = host
         self.token = '***REMOVED***'
-        self.db = pms.connect(host=self.host, user='***REMOVED***', passwd='***REMOVED***', db='***REMOVED***',
+        self.db = pms.connect(host=self.host, user=user, passwd=pw, db=db,
                               autocommit=True)
         self.vk = api.VkApi(token=self.token)
         self.chat = 2000000001
@@ -118,7 +121,7 @@ class VkBot:
         self.cursor = self.db.cursor()
         self.alphabet = string.ascii_letters + string.digits
         self.pw_alphabet = self.alphabet + '@-_%*()&#~'
-        self.admins = [173938201]
+        self.admins = [173938201, 62802397]
         self.cringe_mode = False
         self.hype = []
         self.shop_list = {}
@@ -415,7 +418,7 @@ class VkBot:
         self.reg[user] = [self.register1]
         for player in table:
             if player[8] == user:
-                if user != 0:
+                if user not in self.admins:
                     message = 'К этому аккануту вк уже привязана учетная запись на нашем проекте!'
                     self.write_msg(user, message)
                     self.unreg(msg, user)
@@ -595,7 +598,6 @@ class VkBot:
 
 def longpoll_thread():
     while True:
-        try:
             bot = VkBot()
             longpoll = VkBotLongPoll(bot.vk, '196476866')
             print("Бот приступил к работе")
@@ -649,9 +651,9 @@ def longpoll_thread():
                         else:
                             print(msg.upper()[:30])
                             print(msg.upper()[31:41])
-        except Exception as err:
-            lg.error('Ошибка {0} в потоке бота'.format(err))
-
+try:
+    5+5
+except smtplib.SMTPRecipientsRefused
 def donate_thread():
     don = Donate()
     bot = VkBot()

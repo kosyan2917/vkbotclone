@@ -11,12 +11,17 @@ import math
 class VkBot:
 
     def __init__(self):
+        with open('data.txt', 'r') as f:
+            host = f.readline()
+            user = f.readline()
+            pw = f.readline()
+            db = f.readline()
         self.vk = api.VkApi(token='***REMOVED***')
         self.kb = VkKeyboard(inline=True)
-        self.host = '***REMOVED***'
+        self.host = host
         self.shop_list = {}
         self.commands = {'МАГАЗИН': self.shop, 'ДОБАВЬ': self.add_blocks}
-        self.db = pms.connect(host=self.host, user='***REMOVED***', passwd='***REMOVED***', db='***REMOVED***',
+        self.db = pms.connect(host=self.host, user=user, passwd=pw, db=db,
                               autocommit=True)
         self.cursor = self.db.cursor()
         self.colors = [VkKeyboardColor.POSITIVE, VkKeyboardColor.NEGATIVE, VkKeyboardColor.PRIMARY]
